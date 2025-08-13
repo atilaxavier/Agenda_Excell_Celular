@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Contatos Inteligente</title>
+    <title>Gerenciador de Contatos CSV</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,7 +12,7 @@
             background-color: #f5f5f5;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             background-color: white;
             padding: 20px;
@@ -22,33 +22,41 @@
         h1 {
             color: #333;
             text-align: center;
+            margin-bottom: 20px;
         }
         .file-input {
             margin-bottom: 20px;
-            padding: 10px;
+            padding: 15px;
             border: 2px dashed #ccc;
             border-radius: 5px;
             text-align: center;
+            background-color: #f9f9f9;
         }
         .search-box {
             margin-bottom: 20px;
-            padding: 10px;
+            padding: 12px;
             width: 100%;
             box-sizing: border-box;
             font-size: 16px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        .table-container {
+            overflow-x: auto;
+            max-width: 100%;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
-            overflow-x: auto;
         }
         th, td {
             padding: 12px 15px;
             text-align: left;
             border-bottom: 1px solid #ddd;
+            white-space: nowrap;
         }
         th {
             background-color: #f2f2f2;
@@ -70,37 +78,48 @@
         .no-contacts {
             text-align: center;
             color: #666;
-            padding: 20px;
+            padding: 30px;
+            font-size: 16px;
         }
         .info-message {
-            margin-top: 10px;
+            margin: 10px 0;
             padding: 10px;
             background-color: #e7f3fe;
             border-left: 6px solid #2196F3;
+            border-radius: 4px;
             display: none;
+        }
+        .stats {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Gerenciador de Contatos Inteligente</h1>
+        <h1>Gerenciador de Contatos CSV</h1>
         
         <div class="file-input">
             <input type="file" id="csvFile" accept=".csv" />
             <p>Selecione o arquivo CSV com seus contatos</p>
-            <div id="delimiterInfo" class="info-message"></div>
+            <div id="fileInfo" class="info-message"></div>
         </div>
 
-        <input type="text" id="searchInput" class="search-box" placeholder="Buscar por nome ou empresa..." />
+        <input type="text" id="searchInput" class="search-box" placeholder="Buscar em todos os campos..." />
+        <div id="searchStats" class="stats"></div>
 
-        <div id="contactsTable">
-            <p class="no-contacts">Nenhum contato carregado. Por favor, selecione um arquivo CSV.</p>
+        <div class="table-container">
+            <div id="contactsTable">
+                <p class="no-contacts">Nenhum contato carregado. Por favor, selecione um arquivo CSV.</p>
+            </div>
         </div>
     </div>
 
     <script>
-        // Variável para armazenar os contatos
+        // Variáveis globais
         let contacts = [];
+        let headers = [];
         
         // Espera o DOM carregar
         document.addEventListener('DOMContentLoaded', function() {
@@ -114,33 +133,43 @@
         // Função para detectar o delimitador
         function detectDelimiter(csvText) {
             const firstLine = csvText.split(/\r\n|\n/)[0];
-            const commaCount = (firstLine.match(/,/g) || []).length;
-            const semicolonCount = (firstLine.match(/;/g) || []).length;
+            const delimiters = [',', ';', '\t'];
             
-            // Mostra qual delimitador foi detectado
-            const infoDiv = document.getElementById('delimiterInfo');
-            if (commaCount > semicolonCount) {
-                infoDiv.textContent = 'Delimitador detectado: Vírgula (,)';
-                infoDiv.style.display = 'block';
-                return ',';
-            } else {
-                infoDiv.textContent = 'Delimitador detectado: Ponto e vírgula (;)';
-                infoDiv.style.display = 'block';
-                return ';';
-            }
+            let maxCount = 0;
+            let detectedDelimiter = ',';
+            
+            delimiters.forEach(delimiter => {
+                const count = (firstLine.match(new RegExp(`\\${delimiter}`, 'g'))?.length || 0)
+                if (count > maxCount) {
+                    maxCount = count;
+                    detectedDelimiter = delimiter;
+                }
+            });
+            
+            return detectedDelimiter;
         }
         
         // Função para parsear uma linha CSV considerando campos entre aspas
         function parseCSVLine(line, delimiter) {
-            const pattern = new RegExp(`(".*?"|[^"${delimiter}\\s]+)(?=${delimiter}|$)`, 'g');
-            const matches = line.match(pattern) || [];
-            return matches.map(match => {
-                // Remove aspas do início e fim se existirem
-                if (match.startsWith('"') && match.endsWith('"')) {
-                    return match.slice(1, -1);
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === delimiter && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
                 }
-                return match;
-            });
+            }
+            
+            result.push(current);
+            return result.map(field => field.trim().replace(/^"|"$/g, ''));
         }
         
         // Função para lidar com a seleção do arquivo
@@ -151,54 +180,84 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const contents = e.target.result;
-                parseCSV(contents);
+                parseCSV(contents, file.name);
             };
             reader.readAsText(file);
         }
         
         // Função para parsear o CSV
-        function parseCSV(csvText) {
-            // Detecta o delimitador
-            const delimiter = detectDelimiter(csvText);
-            
-            // Divide as linhas
-            const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
-            
-            // Pega os cabeçalhos (primeira linha)
-            const headers = parseCSVLine(lines[0], delimiter);
-            
-            // Processa as linhas de dados
-            contacts = [];
-            for (let i = 1; i < lines.length; i++) {
-                // Pula linhas vazias
-                if (!lines[i].trim()) continue;
+        function parseCSV(csvText, filename) {
+            try {
+                // Detecta o delimitador
+                const delimiter = detectDelimiter(csvText);
                 
-                // Divide a linha em campos
-                const fields = parseCSVLine(lines[i], delimiter);
+                // Divide as linhas
+                const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
                 
-                // Cria objeto de contato dinamicamente
-                const contact = {};
-                headers.forEach((header, index) => {
-                    if (fields[index] !== undefined) {
-                        contact[header] = fields[index].trim();
-                    }
-                });
-                
-                // Adiciona apenas se tiver algum dado
-                if (Object.values(contact).some(val => val)) {
-                    contacts.push(contact);
+                if (lines.length === 0) {
+                    showError("O arquivo está vazio");
+                    return;
                 }
+                
+                // Pega os cabeçalhos (primeira linha)
+                headers = parseCSVLine(lines[0], delimiter).map(h => h.trim());
+                
+                // Processa as linhas de dados
+                contacts = [];
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    
+                    const fields = parseCSVLine(lines[i], delimiter);
+                    const contact = {};
+                    
+                    headers.forEach((header, index) => {
+                        contact[header] = fields[index] || '';
+                    });
+                    
+                    if (Object.values(contact).some(val => val)) {
+                        contacts.push(contact);
+                    }
+                }
+                
+                // Atualiza informações do arquivo
+                updateFileInfo(filename, delimiter, contacts.length);
+                
+                // Exibe os contatos
+                displayContacts(contacts);
+                
+            } catch (error) {
+                showError("Erro ao processar o arquivo: " + error.message);
+                console.error(error);
             }
+        }
+        
+        // Atualiza informações do arquivo carregado
+        function updateFileInfo(filename, delimiter, count) {
+            const infoDiv = document.getElementById('fileInfo');
+            infoDiv.innerHTML = `
+                <strong>Arquivo:</strong> ${escapeHtml(filename)}<br>
+                <strong>Delimitador:</strong> ${delimiter === ',' ? 'Vírgula (,)' : 'Ponto e vírgula (;)'}<br>
+                <strong>Contatos carregados:</strong> ${count}
+            `;
+            infoDiv.style.display = 'block';
+        }
+        
+        // Exibe mensagem de erro
+        function showError(message) {
+            const infoDiv = document.getElementById('fileInfo');
+            infoDiv.innerHTML = `<strong>Erro:</strong> ${message}`;
+            infoDiv.style.display = 'block';
+            infoDiv.style.borderLeftColor = '#f44336';
             
-            // Exibe os contatos
-            displayContacts(contacts, headers);
+            document.getElementById('contactsTable').innerHTML = 
+                `<p class="no-contacts">Erro ao carregar o arquivo.</p>`;
         }
         
         // Função para exibir os contatos na tabela
-        function displayContacts(contactsToDisplay, headers) {
+        function displayContacts(contactsToDisplay) {
             const tableDiv = document.getElementById('contactsTable');
             
-            if (contactsToDisplay.length === 0 || headers.length === 0) {
+            if (!headers.length || !contactsToDisplay.length) {
                 tableDiv.innerHTML = '<p class="no-contacts">Nenhum contato encontrado.</p>';
                 return;
             }
@@ -220,14 +279,7 @@
                     <tr>
                         ${headers.map(header => {
                             const value = contact[header] || '';
-                            // Verifica se é um campo que parece telefone ou email
-                            if (isPhoneField(header, value)) {
-                                return `<td>${formatPhoneLink(value)}</td>`;
-                            } else if (isEmailField(header, value)) {
-                                return `<td>${formatEmailLink(value)}</td>`;
-                            } else {
-                                return `<td>${escapeHtml(value)}</td>`;
-                            }
+                            return `<td>${formatField(header, value)}</td>`;
                         }).join('')}
                     </tr>
                 `;
@@ -239,12 +291,31 @@
             `;
             
             tableDiv.innerHTML = html;
+            updateSearchStats(contactsToDisplay.length, contacts.length);
         }
         
-        // Verifica se o campo é um telefone (pelo cabeçalho ou conteúdo)
+        // Formata um campo baseado em seu tipo (telefone, email, etc)
+        function formatField(header, value) {
+            if (!value) return '';
+            
+            // Verifica se é um campo de telefone
+            if (isPhoneField(header, value)) {
+                const cleanPhone = value.replace(/\D/g, '');
+                return `<a href="tel:${cleanPhone}" class="phone-link">${escapeHtml(value)}</a>`;
+            }
+            
+            // Verifica se é um campo de email
+            if (isEmailField(header, value)) {
+                return `<a href="mailto:${escapeHtml(value)}" class="email-link">${escapeHtml(value)}</a>`;
+            }
+            
+            return escapeHtml(value);
+        }
+        
+        // Verifica se o campo é um telefone
         function isPhoneField(header, value) {
             const headerLower = header.toLowerCase();
-            const phoneKeywords = ['telefone', 'phone', 'tel', 'celular', 'cel', 'fone'];
+            const phoneKeywords = ['telefone', 'phone', 'tel', 'celular', 'cel', 'fone', 'número', 'numero'];
             
             // Verifica pelo nome do cabeçalho
             if (phoneKeywords.some(keyword => headerLower.includes(keyword))) {
@@ -256,7 +327,7 @@
             return digits.length >= 8;
         }
         
-        // Verifica se o campo é um email (pelo cabeçalho ou conteúdo)
+        // Verifica se o campo é um email
         function isEmailField(header, value) {
             const headerLower = header.toLowerCase();
             const emailKeywords = ['email', 'e-mail', 'mail'];
@@ -267,60 +338,44 @@
             }
             
             // Verifica pelo formato do valor
-            return value.includes('@') && value.includes('.');
-        }
-        
-        // Função para formatar link de telefone
-        function formatPhoneLink(phone) {
-            if (!phone) return '';
-            
-            // Remove caracteres não numéricos
-            const cleanPhone = phone.replace(/\D/g, '');
-            
-            // Verifica se tem número suficiente para ser um telefone
-            if (cleanPhone.length >= 8) {
-                return `<a href="tel:${cleanPhone}" class="phone-link">${escapeHtml(phone)}</a>`;
-            }
-            
-            return escapeHtml(phone);
-        }
-        
-        // Função para formatar link de email
-        function formatEmailLink(email) {
-            if (!email) return '';
-            
-            // Verifica se parece um email válido
-            if (email.includes('@') && email.includes('.')) {
-                return `<a href="mailto:${escapeHtml(email)}" class="email-link">${escapeHtml(email)}</a>`;
-            }
-            
-            return escapeHtml(email);
+            return value.includes('@') && value.includes('.') && value.indexOf('@') > 0 && value.indexOf('.') > value.indexOf('@') + 1;
         }
         
         // Função para filtrar contatos por busca
         function filterContacts() {
-            const searchText = removeAccents(document.getElementById('searchInput').value.toLowerCase());
+            const searchText = normalizeText(document.getElementById('searchInput').value);
             
             if (!searchText) {
-                // Se não há texto de busca, mostra todos os contatos
-                displayContacts(contacts, Object.keys(contacts[0] || {}));
+                displayContacts(contacts);
                 return;
             }
             
             const filtered = contacts.filter(contact => {
-                // Busca em todos os campos
                 return Object.values(contact).some(value => {
-                    return removeAccents(String(value).toLowerCase()).includes(searchText);
+                    return normalizeText(value).includes(searchText);
                 });
             });
             
-            displayContacts(filtered, Object.keys(contacts[0] || {}));
+            displayContacts(filtered);
         }
         
-        // Função auxiliar para remover acentos
-        function removeAccents(str) {
+        // Normaliza texto para busca (remove acentos e coloca em minúsculas)
+        function normalizeText(str) {
             if (!str) return '';
-            return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return str
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase();
+        }
+        
+        // Atualiza estatísticas da busca
+        function updateSearchStats(filteredCount, totalCount) {
+            const statsDiv = document.getElementById('searchStats');
+            
+            if (filteredCount === totalCount) {
+                statsDiv.textContent = `Mostrando todos os ${totalCount} contatos`;
+            } else {
+                statsDiv.textContent = `Mostrando ${filteredCount} de ${totalCount} contatos (filtrados)`;
+            }
         }
         
         // Função para escapar HTML (prevenção XSS)
