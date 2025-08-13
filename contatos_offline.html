@@ -1,136 +1,343 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Contatos CSV</title>
+    <title id="app-title">CSV Contact Manager</title>
     <style>
+        :root {
+            --primary-color: #4285f4;
+            --hover-color: #3367d6;
+            --background-color: #f5f5f5;
+            --card-color: #ffffff;
+            --text-color: #333333;
+            --border-color: #dddddd;
+            --error-color: #f44336;
+            --success-color: #4caf50;
+            --info-color: #2196F3;
+        }
+
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
-            background-color: #f5f5f5;
+            background-color: var(--background-color);
+            color: var(--text-color);
         }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background-color: white;
+            background-color: var(--card-color);
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+
         h1 {
-            color: #333;
+            color: var(--text-color);
             text-align: center;
             margin-bottom: 20px;
         }
+
         .file-input {
             margin-bottom: 20px;
             padding: 15px;
-            border: 2px dashed #ccc;
+            border: 2px dashed var(--border-color);
             border-radius: 5px;
             text-align: center;
             background-color: #f9f9f9;
+            font-weight: bold;
+            position: relative;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #bcbcbc;
+            transition: all 0.1s ease;
         }
+
+        .file-input:hover {
+            background-color: #bcbcbc; 
+        }
+
+        .file-input:active {
+            /* Simulate pressing the button */
+            transform: translateY(3px); /* Move button down */
+            box-shadow: 0 2px 0 #bcbcbc; /* Reduce shadow to simulate pressing */
+        }
+
+        .file-input input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-input-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .file-name {
+            color: #666;
+            font-style: italic;
+        }
+
         .search-box {
             margin-bottom: 20px;
             padding: 12px;
             width: 100%;
             box-sizing: border-box;
             font-size: 16px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
         }
+
         .table-container {
             overflow-x: auto;
             max-width: 100%;
             margin-top: 20px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
         }
+
         th, td {
             padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-color);
             white-space: nowrap;
         }
+
         th {
             background-color: #f2f2f2;
             font-weight: bold;
             position: sticky;
             top: 0;
         }
+
         tr:hover {
             background-color: #f9f9f9;
         }
+
         .phone-link, .email-link {
-            color: #0066cc;
+            color: var(--primary-color);
             text-decoration: none;
             cursor: pointer;
         }
+
         .phone-link:hover, .email-link:hover {
             text-decoration: underline;
+            color: var(--hover-color);
         }
+
         .no-contacts {
             text-align: center;
             color: #666;
             padding: 30px;
             font-size: 16px;
         }
+
         .info-message {
             margin: 10px 0;
             padding: 10px;
             background-color: #e7f3fe;
-            border-left: 6px solid #2196F3;
+            border-left: 6px solid var(--info-color);
             border-radius: 4px;
             display: none;
         }
+
         .stats {
             margin: 10px 0;
             font-size: 14px;
             color: #666;
         }
+
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .language-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 5px 10px;
+            margin-left: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .language-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .language-btn:hover {
+            background-color: #f0f0f0;
+        }
+
+        .language-btn.active:hover {
+            background-color: var(--hover-color);
+        }
     </style>
 </head>
 <body>
+    <div class="language-selector">
+        <button id="lang-en" class="language-btn" data-lang="en">EN</button>
+        <button id="lang-pt" class="language-btn" data-lang="pt">PT</button>
+        <button id="lang-es" class="language-btn" data-lang="es">ES</button>
+    </div>
+
     <div class="container">
-        <h1>Gerenciador de Contatos CSV</h1>
-        
+        <h1 id="app-heading">CSV Contact Manager</h1>
+
         <div class="file-input">
-            <input type="file" id="csvFile" accept=".csv" />
-            <p>Selecione o arquivo CSV com seus contatos</p>
+            <input type="file" id="csvFile" accept=".csv"/>
+            <label for="csvFile" id="file-input-label">Choose file</label>
+
+            <span id="file-name" class="file-name">No file selected</span>
             <div id="fileInfo" class="info-message"></div>
         </div>
 
-        <input type="text" id="searchInput" class="search-box" placeholder="Buscar em todos os campos..." />
+        <input type="text" id="searchInput" class="search-box" placeholder="Search in all fields..." />
         <div id="searchStats" class="stats"></div>
 
         <div class="table-container">
             <div id="contactsTable">
-                <p class="no-contacts">Nenhum contato carregado. Por favor, selecione um arquivo CSV.</p>
+                <p class="no-contacts" id="no-contacts-text">No contacts loaded. Please select a CSV file.</p>
             </div>
         </div>
     </div>
 
     <script>
-        // Variáveis globais
+        // Supported languages
+        const translations = {
+            en: {
+                appTitle: "CSV Contact Manager",
+                appHeading: "CSV Contact Manager",
+                fileInputLabel: "Choose file",
+                noFileSelected: "No file selected",
+                searchPlaceholder: "Search in all fields...",
+                noContactsText: "No contacts loaded. Please select a CSV file.",
+                fileInfoTemplate: (filename, delimiter, count) => `
+                    <strong>File:</strong> ${filename}<br>
+                    <strong>Delimiter:</strong> ${delimiter === ',' ? 'Comma (,)' : 'Semicolon (;)'}<br>
+                    <strong>Loaded contacts:</strong> ${count}
+                `,
+                statsAll: count => `Showing all ${count} contacts`,
+                statsFiltered: (filtered, total) => `Showing ${filtered} of ${total} contacts (filtered)`,
+                errorMessage: "Error loading file",
+                errorDetails: error => `Error: ${error}`
+            },
+            pt: {
+                appTitle: "Gerenciador de Contatos CSV",
+                appHeading: "Gerenciador de Contatos CSV",
+                fileInputLabel: "Escolher arquivo",
+                noFileSelected: "Nenhum arquivo selecionado",
+                searchPlaceholder: "Buscar em todos os campos...",
+                noContactsText: "Nenhum contato carregado. Por favor, selecione um arquivo CSV.",
+                fileInfoTemplate: (filename, delimiter, count) => `
+                    <strong>Arquivo:</strong> ${filename}<br>
+                    <strong>Delimitador:</strong> ${delimiter === ',' ? 'Vírgula (,)' : 'Ponto e vírgula (;)'}<br>
+                    <strong>Contatos carregados:</strong> ${count}
+                `,
+                statsAll: count => `Mostrando todos os ${count} contatos`,
+                statsFiltered: (filtered, total) => `Mostrando ${filtered} de ${total} contatos (filtrados)`,
+                errorMessage: "Erro ao carregar arquivo",
+                errorDetails: error => `Erro: ${error}`
+            },
+            es: {
+                appTitle: "Gestor de Contactos CSV",
+                appHeading: "Gestor de Contactos CSV",
+                fileInputLabel: "Seleccionar archivo",
+                noFileSelected: "Ningún archivo seleccionado",
+                searchPlaceholder: "Buscar en todos los campos...",
+                noContactsText: "No hay contactos cargados. Por favor, seleccione un archivo CSV.",
+                fileInfoTemplate: (filename, delimiter, count) => `
+                    <strong>Archivo:</strong> ${filename}<br>
+                    <strong>Delimitador:</strong> ${delimiter === ',' ? 'Coma (,)' : 'Punto y coma (;)'}<br>
+                    <strong>Contactos cargados:</strong> ${count}
+                `,
+                statsAll: count => `Mostrando todos los ${count} contactos`,
+                statsFiltered: (filtered, total) => `Mostrando ${filtered} de ${total} contactos (filtrados)`,
+                errorMessage: "Error al cargar el archivo",
+                errorDetails: error => `Error: ${error}`
+            }
+        };
+
+        // Current language (default to browser language or English)
+        let currentLang = navigator.language.split('-')[0];
+        if (!translations[currentLang]) {
+            currentLang = 'en';
+        }
+
+        // Global variables
         let contacts = [];
         let headers = [];
         
-        // Espera o DOM carregar
-        document.addEventListener('DOMContentLoaded', function() {
-            // Configura o input de arquivo
-            document.getElementById('csvFile').addEventListener('change', handleFileSelect);
+        // Initialize the app
+        function initApp() {
+            // Set up language buttons
+            document.querySelectorAll('.language-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    setLanguage(this.dataset.lang);
+                });
+                
+                if (btn.dataset.lang === currentLang) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Apply translations
+            applyTranslations();
             
-            // Configura a busca
+            // Set up file input
+            const fileInput = document.getElementById('csvFile');
+            fileInput.addEventListener('change', function(e) {
+                const fileName = e.target.files[0]?.name || translations[currentLang].noFileSelected;
+                document.getElementById('file-name').textContent = fileName;
+                handleFileSelect(e);
+            });
+            
+            // Set up search
             document.getElementById('searchInput').addEventListener('input', filterContacts);
-        });
-        
-        // Função para detectar o delimitador
+        }
+
+        // Set language and refresh UI
+        function setLanguage(lang) {
+            if (translations[lang]) {
+                currentLang = lang;
+                document.querySelectorAll('.language-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.lang === lang);
+                });
+                applyTranslations();
+                if (contacts.length > 0) {
+                    displayContacts(contacts);
+                }
+            }
+        }
+
+        // Apply translations to UI elements
+        function applyTranslations() {
+            const t = translations[currentLang];
+            document.title = t.appTitle;
+            document.getElementById('app-title').textContent = t.appTitle;
+            document.getElementById('app-heading').textContent = t.appHeading;
+            document.getElementById('file-input-label').textContent = t.fileInputLabel;
+            document.getElementById('file-name').textContent = t.noFileSelected;
+            document.getElementById('searchInput').placeholder = t.searchPlaceholder;
+            document.getElementById('no-contacts-text').textContent = t.noContactsText;
+        }
+
+        // Function to detect delimiter
         function detectDelimiter(csvText) {
             const firstLine = csvText.split(/\r\n|\n/)[0];
             const delimiters = [',', ';', '\t'];
@@ -149,7 +356,7 @@
             return detectedDelimiter;
         }
         
-        // Função para parsear uma linha CSV considerando campos entre aspas
+        // Function to parse a CSV line considering quoted fields
         function parseCSVLine(line, delimiter) {
             const result = [];
             let current = '';
@@ -172,7 +379,7 @@
             return result.map(field => field.trim().replace(/^"|"$/g, ''));
         }
         
-        // Função para lidar com a seleção do arquivo
+        // Function to handle file selection
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -185,24 +392,24 @@
             reader.readAsText(file);
         }
         
-        // Função para parsear o CSV
+        // Function to parse CSV
         function parseCSV(csvText, filename) {
             try {
-                // Detecta o delimitador
+                // Detect delimiter
                 const delimiter = detectDelimiter(csvText);
                 
-                // Divide as linhas
+                // Split lines
                 const lines = csvText.split(/\r\n|\n/).filter(line => line.trim() !== '');
                 
                 if (lines.length === 0) {
-                    showError("O arquivo está vazio");
+                    showError(translations[currentLang].errorMessage);
                     return;
                 }
                 
-                // Pega os cabeçalhos (primeira linha)
+                // Get headers (first line)
                 headers = parseCSVLine(lines[0], delimiter).map(h => h.trim());
                 
-                // Processa as linhas de dados
+                // Process data lines
                 contacts = [];
                 for (let i = 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue;
@@ -219,50 +426,50 @@
                     }
                 }
                 
-                // Atualiza informações do arquivo
+                // Update file info
                 updateFileInfo(filename, delimiter, contacts.length);
                 
-                // Exibe os contatos
+                // Display contacts
                 displayContacts(contacts);
                 
             } catch (error) {
-                showError("Erro ao processar o arquivo: " + error.message);
+                showError(translations[currentLang].errorDetails(error.message));
                 console.error(error);
             }
         }
         
-        // Atualiza informações do arquivo carregado
+        // Update file information
         function updateFileInfo(filename, delimiter, count) {
             const infoDiv = document.getElementById('fileInfo');
-            infoDiv.innerHTML = `
-                <strong>Arquivo:</strong> ${escapeHtml(filename)}<br>
-                <strong>Delimitador:</strong> ${delimiter === ',' ? 'Vírgula (,)' : 'Ponto e vírgula (;)'}<br>
-                <strong>Contatos carregados:</strong> ${count}
-            `;
+            infoDiv.innerHTML = translations[currentLang].fileInfoTemplate(
+                escapeHtml(filename), 
+                delimiter, 
+                count
+            );
             infoDiv.style.display = 'block';
         }
         
-        // Exibe mensagem de erro
+        // Show error message
         function showError(message) {
             const infoDiv = document.getElementById('fileInfo');
-            infoDiv.innerHTML = `<strong>Erro:</strong> ${message}`;
+            infoDiv.innerHTML = `<strong>${translations[currentLang].errorMessage}:</strong> ${message}`;
             infoDiv.style.display = 'block';
-            infoDiv.style.borderLeftColor = '#f44336';
+            infoDiv.style.borderLeftColor = 'var(--error-color)';
             
             document.getElementById('contactsTable').innerHTML = 
-                `<p class="no-contacts">Erro ao carregar o arquivo.</p>`;
+                `<p class="no-contacts">${translations[currentLang].errorMessage}</p>`;
         }
         
-        // Função para exibir os contatos na tabela
+        // Display contacts in table
         function displayContacts(contactsToDisplay) {
             const tableDiv = document.getElementById('contactsTable');
             
             if (!headers.length || !contactsToDisplay.length) {
-                tableDiv.innerHTML = '<p class="no-contacts">Nenhum contato encontrado.</p>';
+                tableDiv.innerHTML = `<p class="no-contacts">${translations[currentLang].noContactsText}</p>`;
                 return;
             }
             
-            // Gera cabeçalhos da tabela
+            // Generate table headers
             let html = `
                 <table>
                     <thead>
@@ -273,7 +480,7 @@
                     <tbody>
             `;
             
-            // Gera linhas da tabela
+            // Generate table rows
             contactsToDisplay.forEach(contact => {
                 html += `
                     <tr>
@@ -294,17 +501,17 @@
             updateSearchStats(contactsToDisplay.length, contacts.length);
         }
         
-        // Formata um campo baseado em seu tipo (telefone, email, etc)
+        // Format field based on type (phone, email, etc)
         function formatField(header, value) {
             if (!value) return '';
             
-            // Verifica se é um campo de telefone
+            // Check if it's a phone field
             if (isPhoneField(header, value)) {
                 const cleanPhone = value.replace(/\D/g, '');
                 return `<a href="tel:${cleanPhone}" class="phone-link">${escapeHtml(value)}</a>`;
             }
             
-            // Verifica se é um campo de email
+            // Check if it's an email field
             if (isEmailField(header, value)) {
                 return `<a href="mailto:${escapeHtml(value)}" class="email-link">${escapeHtml(value)}</a>`;
             }
@@ -312,36 +519,44 @@
             return escapeHtml(value);
         }
         
-        // Verifica se o campo é um telefone
+        // Check if field is a phone number
         function isPhoneField(header, value) {
             const headerLower = header.toLowerCase();
-            const phoneKeywords = ['telefone', 'phone', 'tel', 'celular', 'cel', 'fone', 'número', 'numero'];
+            const phoneKeywords = {
+                en: ['phone', 'tel', 'mobile', 'cell', 'number'],
+                pt: ['telefone', 'tel', 'celular', 'cel', 'fone', 'número'],
+                es: ['teléfono', 'tel', 'móvil', 'celular', 'número']
+            };
             
-            // Verifica pelo nome do cabeçalho
-            if (phoneKeywords.some(keyword => headerLower.includes(keyword))) {
+            // Check by header name
+            if (phoneKeywords[currentLang].some(keyword => headerLower.includes(keyword))) {
                 return true;
             }
             
-            // Verifica pelo formato do valor (pelo menos 8 dígitos)
+            // Check by value format (at least 8 digits)
             const digits = value.replace(/\D/g, '');
             return digits.length >= 8;
         }
         
-        // Verifica se o campo é um email
+        // Check if field is an email
         function isEmailField(header, value) {
             const headerLower = header.toLowerCase();
-            const emailKeywords = ['email', 'e-mail', 'mail'];
+            const emailKeywords = {
+                en: ['email', 'mail'],
+                pt: ['email', 'e-mail', 'correio'],
+                es: ['email', 'correo', 'electrónico']
+            };
             
-            // Verifica pelo nome do cabeçalho
-            if (emailKeywords.some(keyword => headerLower.includes(keyword))) {
+            // Check by header name
+            if (emailKeywords[currentLang].some(keyword => headerLower.includes(keyword))) {
                 return true;
             }
             
-            // Verifica pelo formato do valor
+            // Check by value format
             return value.includes('@') && value.includes('.') && value.indexOf('@') > 0 && value.indexOf('.') > value.indexOf('@') + 1;
         }
         
-        // Função para filtrar contatos por busca
+        // Filter contacts by search
         function filterContacts() {
             const searchText = normalizeText(document.getElementById('searchInput').value);
             
@@ -359,7 +574,7 @@
             displayContacts(filtered);
         }
         
-        // Normaliza texto para busca (remove acentos e coloca em minúsculas)
+        // Normalize text for searching (remove accents and lowercase)
         function normalizeText(str) {
             if (!str) return '';
             return str
@@ -367,18 +582,18 @@
                 .toLowerCase();
         }
         
-        // Atualiza estatísticas da busca
+        // Update search statistics
         function updateSearchStats(filteredCount, totalCount) {
             const statsDiv = document.getElementById('searchStats');
             
             if (filteredCount === totalCount) {
-                statsDiv.textContent = `Mostrando todos os ${totalCount} contatos`;
+                statsDiv.textContent = translations[currentLang].statsAll(totalCount);
             } else {
-                statsDiv.textContent = `Mostrando ${filteredCount} de ${totalCount} contatos (filtrados)`;
+                statsDiv.textContent = translations[currentLang].statsFiltered(filteredCount, totalCount);
             }
         }
         
-        // Função para escapar HTML (prevenção XSS)
+        // Escape HTML (XSS prevention)
         function escapeHtml(unsafe) {
             if (!unsafe) return '';
             return unsafe
@@ -388,6 +603,9 @@
                 .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#039;");
         }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
