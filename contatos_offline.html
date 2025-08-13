@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Contatos Offline</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .file-input {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .search-box {
+            margin-bottom: 20px;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+        .phone-link, .email-link {
+            color: #0066cc;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .phone-link:hover, .email-link:hover {
+            text-decoration: underline;
+        }
+        .no-contacts {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        .instructions {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gerenciador de Contatos</h1>
+        
+        <div class="instructions">
+            <p><strong>Instruções:</strong></p>
+            <ol>
+                <li>Clique no botão abaixo para selecionar um arquivo CSV com seus contatos</li>
+                <li>O arquivo deve ter o formato: Nome;Empresa;Telefone1;Telefone2;Telefone3;Telefone4;E-mail</li>
+                <li>Use o campo de busca para filtrar os contatos por nome ou empresa</li>
+                <li>Clique em um número para ligar ou em um e-mail para enviar mensagem</li>
+            </ol>
+        </div>
+
+        <div class="file-input">
+            <input type="file" id="csvFile" accept=".csv" />
+            <p>Selecione o arquivo CSV com seus contatos</p>
+        </div>
+
+        <input type="text" id="searchInput" class="search-box" placeholder="Buscar por nome ou empresa..." />
+
+        <div id="contactsTable">
+            <p class="no-contacts">Nenhum contato carregado. Por favor, selecione um arquivo CSV.</p>
+        </div>
+    </div>
+
+    <script>
+        // Variável para armazenar os contatos
+        let contacts = [];
+        
+        // Espera o DOM carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configura o input de arquivo
+            document.getElementById('csvFile').addEventListener('change', handleFileSelect);
+            
+            // Configura a busca
+            document.getElementById('searchInput').addEventListener('input', filterContacts);
+        });
+        
+        // Função para lidar com a seleção do arquivo
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contents = e.target.result;
+                parseCSV(contents);
+            };
+            reader.readAsText(file);
+        }
+        
+        // Função para parsear o CSV
+        function parseCSV(csvText) {
+            const lines = csvText.split(/\r\n|\n/);
+            contacts = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                // Pula linhas vazias
+                if (!lines[i].trim()) continue;
+                
+                // Divide a linha em campos (considerando vírgulas como separador)
+                //let fields = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                let fields = lines[i].split(/;(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                
+                // Remove aspas extras dos campos
+                fields = fields.map(field => {
+                    return field.replace(/^"|"$/g, '').trim();
+                });
+                
+                // Verifica se tem pelo menos nome e um telefone/email
+                if (fields.length >= 3 && fields[0]) {
+                    const contact = {
+                        nome: fields[0] || '',
+                        empresa: fields[1] || '',
+                        tel1: fields[2] || '',
+                        tel2: fields[3] || '',
+                        tel3: fields[4] || '',
+                        tel4: fields[5] || '',
+                        email: fields[6] || ''
+                    };
+                    contacts.push(contact);
+                }
+            }
+            
+            // Exibe os contatos
+            displayContacts(contacts);
+        }
+        
+        // Função para exibir os contatos na tabela
+        function displayContacts(contactsToDisplay) {
+            const tableDiv = document.getElementById('contactsTable');
+            
+            if (contactsToDisplay.length === 0) {
+                tableDiv.innerHTML = '<p class="no-contacts">Nenhum contato encontrado.</p>';
+                return;
+            }
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Empresa</th>
+                            <th>Telefone 1</th>
+                            <th>Telefone 2</th>
+                            <th>Telefone 3</th>
+                            <th>Telefone 4</th>
+                            <th>E-mail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            contactsToDisplay.forEach(contact => {
+                html += `
+                    <tr>
+                        <td>${escapeHtml(contact.nome)}</td>
+                        <td>${escapeHtml(contact.empresa)}</td>
+                        <td>${formatPhoneLink(contact.tel1)}</td>
+                        <td>${formatPhoneLink(contact.tel2)}</td>
+                        <td>${formatPhoneLink(contact.tel3)}</td>
+                        <td>${formatPhoneLink(contact.tel4)}</td>
+                        <td>${formatEmailLink(contact.email)}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            tableDiv.innerHTML = html;
+        }
+        
+        // Função para formatar link de telefone
+        function formatPhoneLink(phone) {
+            if (!phone) return '';
+            
+            // Remove caracteres não numéricos
+            const cleanPhone = phone.replace(/\D/g, '');
+            
+            // Verifica se tem número suficiente para ser um telefone
+            if (cleanPhone.length >= 8) {
+                return `<a href="tel:${cleanPhone}" class="phone-link">${phone}</a>`;
+            }
+            
+            return phone;
+        }
+        
+        // Função para formatar link de email
+        function formatEmailLink(email) {
+            if (!email) return '';
+            
+            // Verifica se parece um email válido
+            if (email.includes('@') && email.includes('.')) {
+                return `<a href="mailto:${email}" class="email-link">${email}</a>`;
+            }
+            
+            return email;
+        }
+        
+        // Função para filtrar contatos por busca
+        function filterContacts() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (!searchText) {
+                displayContacts(contacts);
+                return;
+            }
+            
+            const filtered = contacts.filter(contact => {
+                // Busca por nome ou empresa (considerando similaridade fonética aproximada)
+                const nomeMatch = removeAccents(contact.nome.toLowerCase()).includes(removeAccents(searchText));
+                const empresaMatch = removeAccents(contact.empresa.toLowerCase()).includes(removeAccents(searchText));
+                
+                return nomeMatch || empresaMatch;
+            });
+            
+            displayContacts(filtered);
+        }
+        
+        // Função auxiliar para remover acentos
+        function removeAccents(str) {
+            return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+        
+        // Função para escapar HTML (prevenção XSS)
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
